@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { Header, Form, Input, Icon, Segment, Message, Dimmer } from 'semantic-ui-react';
+import { Header, Form, Icon, Message, Dimmer } from 'semantic-ui-react';
 import zxcvbn from 'zxcvbn';
 import './App.css';
 
@@ -21,13 +21,17 @@ const getParams = (search) => {
   return params;
 };
 
+const isEmail = (potential) => {
+  const emailRegex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+  return potential.match(emailRegex);
+};
+
 class App extends Component {
   state = {
     error_password: false, error_verify: false,
     loading: false,
     success: false,
     reset_hash: "",
-    username: "retail@takealot.com"
   };
 
   handleChange = (e, { name, value }) => this.setState({ [name]: value })
@@ -35,49 +39,73 @@ class App extends Component {
   componentDidMount = () => {
     const params = getParams(window.location.toString());
     const reset_hash = params.reset_hash;
-    this.setState({ reset_hash, reset_hash_provided: !!reset_hash })
+    const email = params.email || "";
+    this.setState({
+      email,
+      reset_hash,
+      reset_hash_provided: !!reset_hash })
   };
 
   handleSubmit = (e) => {
     e.preventDefault();
 
-    const { password, password_verify, reset_hash } = this.state;
+    const { email, password, password_verify, reset_hash } = this.state;
+
+    let error_email = false;
+    let error_password = false;
+    let error_verify = false;
+    let error_hash = false;
+    let errors = [];
 
     if (!reset_hash) {
-      this.setState({
-        error: true,
-        error_message: "Something went wrong. The reset hash wasn't specified"
-      });
-      return;
+      error_hash = true;
+      errors.push("Something went wrong. The reset hash wasn't specified");
     }
 
-    if (!password || !password_verify) {
-      this.setState({
-        error_password: !password,
-        error_verify: !password_verify,
-        error_message: "Please enter a passwords"
-      });
-      return;
+    if (!email) {
+      error_email = true;
+      errors.push("Please enter your login email address");
+    }
+    else if (!isEmail(email)) {
+      error_email = true;
+      errors.push("Please enter a valid email address");
     }
 
-    if (password !== password_verify) {
-      this.setState({
-        error_verify: true,
-        error_message: "The passwords do not match"
-      });
-      return;
+    if (!password) {
+      error_password = true;
+      errors.push("Please provide a password");
     }
-
-    const { strong, feedback } = passwordStrength(password);
-    if (!strong) {
-      this.setState({
-        error: true,
-        error_message: <div>Your password isn't strong enough {feedback.warning ? " - " + feedback.warning : null}
+    else {
+      const { strong, feedback } = passwordStrength(password);
+      if (!strong) {
+        error_password = true;
+        errors.push(<div>Your password isn't strong enough {feedback.warning ? " - " + feedback.warning : null}
           {feedback.suggestions ? <ul>
-            {feedback.suggestions.map((s,i) => <li key={i}>{s}</li>)}
+            {feedback.suggestions.map((s, i) => <li key={i}>{s}</li>)}
           </ul> : null}
-        </div>
-      });
+        </div>)
+      }
+    }
+
+    if (password && !password_verify) {
+      error_verify = true;
+      errors.push("Please verify your password");
+    }
+    else if (password && password_verify && (password !== password_verify)) {
+      error_verify = true,
+        errors.push("The passwords do not match");
+    }
+
+    const error = error_hash || error_verify || error_password || error_email;
+    this.setState({
+      error,
+      error_email,
+      error_hash,
+      error_password,
+      error_verify,
+      error_message: errors.map((e, i) => <p key={i}>{e}</p>)
+    });
+    if (error) {
       return;
     }
 
@@ -91,16 +119,16 @@ class App extends Component {
 
   handleSubmitHash = () => {
     const { reset_hash } = this.state;
-    if(reset_hash) {
-      this.setState({reset_hash_provided: true});
+    if (reset_hash) {
+      this.setState({ reset_hash_provided: true });
     }
   };
 
   render() {
     const {
-      username,
+      email,
       reset_hash, reset_hash_provided,
-      error, error_password, error_verify,
+      error, error_password, error_verify, error_email,
       success,
       loading,
       error_message
@@ -108,28 +136,31 @@ class App extends Component {
     return (
       <div className="App">
         <Header icon dividing textAlign="center" style={{ paddingTop: "1em" }}><Icon name="key" />
-          <Header.Content>New password for {username}</Header.Content></Header>
+          <Header.Content>Password reset</Header.Content></Header>
 
         <Dimmer.Dimmable>
           <Dimmer active={!reset_hash_provided}>
             <Form inverted onSubmit={this.handleSubmitHash} style={{ padding: "2em" }}>
               <Form.Input required name="reset_hash" type="text" value={reset_hash}
-                          label="Copy and paste the provided password hash in here" onChange={this.handleChange} />
+                          label="Copy and paste the provided password reset hash in here"
+                          onChange={this.handleChange} />
               <Form.Button type="submit" content="Use hash" fluid />
             </Form>
           </Dimmer>
-          <Form loading={loading} error={error || error_password || error_verify} success={success}
+          <Form loading={loading} error={error || error_password || error_verify || error_email} success={success}
                 onSubmit={this.handleSubmit} style={{ padding: "2em" }}>
             <Message success header="Success!" content="Your password was successfully updated!" />
             <Message error content={error_message} />
             {!success ?
               <Form.Group widths="equal">
-                <Form.Input error={error_password} required name="password" type="password"
+                <Form.Input error={error_email} name="email" type="text" value={email}
+                            label="Enter your email" onChange={this.handleChange} />
+                <Form.Input error={error_password} name="password" type="password"
                             label="Enter your password" onChange={this.handleChange} />
-                <Form.Input error={error_verify} required name="password_verify" type="password"
+                <Form.Input error={error_verify} name="password_verify" type="password"
                             label="Repeat your password" onChange={this.handleChange} />
-                <Form.Button type="submit" content="Save new Password" fluid />
               </Form.Group> : null}
+            <Form.Button type="submit" content="Save new Password" fluid />
           </Form>
         </Dimmer.Dimmable>
       </div>
