@@ -43,7 +43,8 @@ class App extends Component {
     this.setState({
       email,
       reset_hash,
-      reset_hash_provided: !!reset_hash })
+      reset_hash_provided: !!reset_hash
+    })
   };
 
   handleSubmit = (e) => {
@@ -79,10 +80,10 @@ class App extends Component {
       const { strong, feedback } = passwordStrength(password);
       if (!strong) {
         error_password = true;
-        errors.push(<div>Your password isn't strong enough {feedback.warning ? " - " + feedback.warning : null}
-          {feedback.suggestions ? <ul>
-            {feedback.suggestions.map((s, i) => <li key={i}>{s}</li>)}
-          </ul> : null}
+        const error_message = "Your password isn't strong enough" + (feedback.warning ? " - " + feedback.warning : "");
+        errors.push(<div>{error_message}{feedback.suggestions ? <ul>
+          {feedback.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+        </ul> : null}
         </div>)
       }
     }
@@ -92,8 +93,8 @@ class App extends Component {
       errors.push("Please verify your password");
     }
     else if (password && password_verify && (password !== password_verify)) {
-      error_verify = true,
-        errors.push("The passwords do not match");
+      error_verify = true;
+      errors.push("The passwords do not match");
     }
 
     const error = error_hash || error_verify || error_password || error_email;
@@ -144,7 +145,7 @@ class App extends Component {
               <Form.Input required name="reset_hash" type="text" value={reset_hash}
                           label="Copy and paste the provided password reset hash in here"
                           onChange={this.handleChange} />
-              <Form.Button type="submit" content="Use hash" fluid />
+              <Form.Button primary type="submit" content="Use hash" fluid />
             </Form>
           </Dimmer>
           <Form loading={loading} error={error || error_password || error_verify || error_email} success={success}
@@ -160,7 +161,7 @@ class App extends Component {
                 <Form.Input error={error_verify} name="password_verify" type="password"
                             label="Repeat your password" onChange={this.handleChange} />
               </Form.Group> : null}
-            <Form.Button type="submit" content="Save new Password" fluid />
+            <Form.Button primary type="submit" content="Save new Password" fluid />
           </Form>
         </Dimmer.Dimmable>
       </div>
